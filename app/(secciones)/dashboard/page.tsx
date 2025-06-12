@@ -1,6 +1,27 @@
+'use client'
+import { useState, useEffect, use } from "react";
+import { getLenghtClients } from "@/lib/database/clients"; 
 
 
 const Dashboard: React.FC = () => {
+const [clientsCount, setClientsCount] = useState(0);
+const [income, setIncome] = useState(0);
+useEffect(() => {
+  const fetchClientsCount = async () => {
+    const count = await getLenghtClients();
+    setClientsCount(count);
+  };
+  const fetchIncome = async () => {
+    const res = await fetch("/api/get-income");
+    const data = await res.json();
+    setIncome(data.income);
+  };
+  fetchIncome();
+  fetchClientsCount();
+}
+, []);
+
+
   return (
     <div className="flex-1 bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
@@ -9,11 +30,11 @@ const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-gradient-to-r from-green-400 to-green-500 p-6 rounded-xl text-white">
               <h3 className="text-xl font-semibold mb-2">Total Clientes</h3>
-              <p className="text-3xl font-bold">1,247</p>
+              <p className="text-3xl font-bold">{clientsCount}</p>
             </div>
             <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 p-6 rounded-xl text-white">
               <h3 className="text-xl font-semibold mb-2">Ingresos del Mes</h3>
-              <p className="text-3xl font-bold">$45,680</p>
+              <p className="text-3xl font-bold">{income}</p>
             </div>
           </div>
           <div className="mt-8">
