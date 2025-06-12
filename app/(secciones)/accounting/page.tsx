@@ -1,79 +1,89 @@
 'use client'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Trash2, Calculator, TrendingUp, FileText, Edit, DollarSign, Search, Calendar, User } from 'lucide-react';
+import { ICustomerInvoices } from '@/types/ICustomerInvoices';
 
 const ContabilidadComponent: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('todos');
-
-  const [transactions] = useState([
-    {
-      id: 1,
-      date: '2024-06-01',
-      description: 'Pago de servicios - Cliente ABC',
-      type: 'Ingreso',
-      category: 'Servicios',
-      amount: 15000,
-      client: 'Juan Pérez',
-      status: 'Completado'
-    },
-    {
-      id: 2,
-      date: '2024-06-02',
-      description: 'Compra de suministros de oficina',
-      type: 'Egreso',
-      category: 'Gastos Operativos',
-      amount: -2500,
-      client: 'Oficina Central',
-      status: 'Completado'
-    },
-    {
-      id: 3,
-      date: '2024-06-03',
-      description: 'Consultoría empresarial - XYZ Corp',
-      type: 'Ingreso',
-      category: 'Consultoría',
-      amount: 25000,
-      client: 'María González',
-      status: 'Pendiente'
-    },
-    {
-      id: 4,
-      date: '2024-06-04',
-      description: 'Pago de alquiler',
-      type: 'Egreso',
-      category: 'Gastos Fijos',
-      amount: -8000,
-      client: 'Inmobiliaria Sur',
-      status: 'Completado'
-    },
-    {
-      id: 5,
-      date: '2024-06-05',
-      description: 'Desarrollo de software - Tech Solutions',
-      type: 'Ingreso',
-      category: 'Desarrollo',
-      amount: 35000,
-      client: 'Carlos Rodriguez',
-      status: 'Completado'
+  const [income, setIncome] = useState(0);
+  const [expenses, setExpenses] = useState(0);
+  const [transactionsCustomer, setTransactionsCustomer] = useState<ICustomerInvoices[]>([]);
+  const [balance, setBalance] = useState(0);
+  useEffect(() => {
+    const fetchIncome = async () => {
+      try {
+        const response = await fetch('/api/get-income');
+        const data = await response.json();
+        setIncome(data.income);
+      } catch (error) {
+        console.error('Error fetching income:', error);
+      }
     }
-  ]);
 
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFilter = selectedFilter === 'todos' || 
-                         (selectedFilter === 'ingresos' && transaction.type === 'Ingreso') ||
-                         (selectedFilter === 'egresos' && transaction.type === 'Egreso');
-    
-    return matchesSearch && matchesFilter;
-  });
+    const fetchExpenses = async () => {
+      try {
+        const response = await fetch('/api/get-expenses');
+        const data = await response.json();
+        setExpenses(data.expenses);
+      } catch (error) {
+        console.error('Error fetching expenses:', error);
+      }
+    }
 
-  const totalIngresos = transactions.filter(t => t.type === 'Ingreso').reduce((sum, t) => sum + t.amount, 0);
-  const totalEgresos = transactions.filter(t => t.type === 'Egreso').reduce((sum, t) => sum + Math.abs(t.amount), 0);
-  const balance = totalIngresos - totalEgresos;
+   const fetchCustomer = async () => {
+  try {
+    const response = await fetch('/api/get-customer-invoices');
+    const data = await response.json();
+    const normalized = data.customer.map((item: any) => ({
+  ...item,
+  type: 'Ingreso',
+  origin: 'customer',
+}));
+
+    setTransactionsCustomer(prev => [...prev, ...normalized]);
+  } catch (error) {
+    console.error('Error fetching customer invoices:', error);
+  }
+};
+
+const fetchSupplier = async () => {
+  try {
+    const response = await fetch('/api/get-supplier-invoices');
+    const data = await response.json();
+   const normalized = data.supplier.map((item: any) => ({
+  ...item,
+  type: 'Egreso',
+  origin: 'supplier',
+}));
+
+    setTransactionsCustomer(prev => [...prev, ...normalized]);
+  } catch (error) {
+    console.error('Error fetching supplier invoices:', error);
+  }
+};
+
+    fetchSupplier();
+    fetchCustomer();
+
+
+    fetchIncome();
+    fetchExpenses();
+    setBalance(income - expenses);
+  },[])
+
+  const filteredTransactions = transactionsCustomer.filter((transaction) => {
+  const matchesSearch = transaction.name.toLowerCase().includes(searchTerm.toLowerCase());
+  if (selectedFilter === 'todos') return matchesSearch;
+  if (selectedFilter === 'ingresos') return transaction.type === 'Ingreso' && matchesSearch;
+  if (selectedFilter === 'egresos') return transaction.type === 'Egreso' && matchesSearch;
+  return true;
+});
+
+
+
+
+
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
@@ -96,7 +106,7 @@ const ContabilidadComponent: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-green-100 text-sm">Total Ingresos</p>
-                  <p className="text-2xl font-bold">${totalIngresos.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">${income}</p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-green-200" />
               </div>
@@ -105,7 +115,7 @@ const ContabilidadComponent: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-red-100 text-sm">Total Egresos</p>
-                  <p className="text-2xl font-bold">${totalEgresos.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">${expenses}</p>
                 </div>
                 <FileText className="h-8 w-8 text-red-200" />
               </div>
@@ -114,7 +124,7 @@ const ContabilidadComponent: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className={`${balance >= 0 ? 'text-blue-100' : 'text-orange-100'} text-sm`}>Balance</p>
-                  <p className="text-2xl font-bold">${balance.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">${income - expenses}</p>
                 </div>
                 <DollarSign className={`h-8 w-8 ${balance >= 0 ? 'text-blue-200' : 'text-orange-200'}`} />
               </div>
@@ -160,7 +170,7 @@ const ContabilidadComponent: React.FC = () => {
           </div>
           <div className="divide-y divide-gray-200">
             {filteredTransactions.map((transaction) => (
-              <div key={transaction.id} className="p-6 hover:bg-gray-50 transition-colors">
+              <div key={`${transaction.origin}-${transaction.id}`} className="p-6 hover:bg-gray-50 transition-colors">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-4 mb-4 lg:mb-0">
@@ -172,32 +182,24 @@ const ContabilidadComponent: React.FC = () => {
                         {transaction.type === 'Ingreso' ? '+' : '-'}
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-800">{transaction.description}</h3>
-                        <p className="text-gray-600">{transaction.category}</p>
+                        <h3 className="text-lg font-semibold text-gray-800">{transaction.name}</h3>
                       </div>
                       <div className="text-right">
                         <p className={`text-2xl font-bold ${
                           transaction.type === 'Ingreso' ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          ${Math.abs(transaction.amount).toLocaleString()}
+                          ${Math.abs(transaction.amount_total).toLocaleString()}
                         </p>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          transaction.status === 'Completado' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {transaction.status}
-                        </span>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                       <div className="flex items-center space-x-2 text-gray-600">
                         <Calendar className="h-4 w-4" />
-                        <span className="text-sm">{transaction.date}</span>
+                        <span className="text-sm">{transaction.invoice_date}</span>
                       </div>
                       <div className="flex items-center space-x-2 text-gray-600">
                         <User className="h-4 w-4" />
-                        <span className="text-sm">{transaction.client}</span>
+                        <span className="text-sm">{transaction.partner_id[1]}</span>
                       </div>
                     </div>
                   </div>
